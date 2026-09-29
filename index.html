@@ -1,17 +1,44 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Online Compiler</title>
+<title>Python Compiler</title>
 </head>
 <body>
 
-<h1>Online Compiler</h1>
+<h1>Python Compiler</h1>
 
-<textarea rows="10" cols="80">print("Hello World")</textarea>
+<textarea id="code" rows="15" cols="80">
+print("Hello World")
+</textarea>
 
 <br><br>
 
-<button>Run</button>
+<button onclick="runCode()">Run</button>
+
+<pre id="output"></pre>
+
+<script>
+async function runCode() {
+
+const code =
+document.getElementById("code").value;
+
+const response =
+await fetch("/run", {
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ code })
+});
+
+const result =
+await response.json();
+
+document.getElementById("output").innerText =
+result.output;
+}
+</script>
 
 </body>
 </html>
