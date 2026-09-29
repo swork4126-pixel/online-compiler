@@ -1,44 +1,10 @@
-<!DOCTYPE html>
-<html>
-<head>
-<title>Python Compiler</title>
-</head>
-<body>
-
-<h1>Python Compiler</h1>
-
-<textarea id="code" rows="15" cols="80">
-print("Hello World")
-</textarea>
-
-<br><br>
-
-<button onclick="runCode()">Run</button>
-
-<pre id="output"></pre>
-
-<script>
-async function runCode() {
-
-const code =
-document.getElementById("code").value;
-
-const response =
-await fetch("/run", {
-method: "POST",
-headers: {
-"Content-Type": "application/json"
-},
-body: JSON.stringify({ code })
-});
-
-const result =
-await response.json();
-
-document.getElementById("output").innerText =
-result.output;
-}
-</script>
-
-</body>
-</html>
+<select id="language">
+  <option value="python">Python</option>
+  <option value="javascript">JavaScript</option>
+  <option value="php">PHP</option>
+  <option value="c">C</option>
+  <option value="cpp">C++</option>
+  <option value="java">Java</option>
+  <option value="go">Go</option>
+  <option value="rust">Rust</option>
+</select>
