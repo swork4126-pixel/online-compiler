@@ -1,378 +1,521 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0b1020" />
-  <title>Online Compiler</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <style>
-    :root {
-      --bg: #0b1020;
-      --panel: #111827;
-      --panel-2: #0f172a;
-      --panel-3: #0b1220;
-      --border: #263244;
-      --text: #e5e7eb;
-      --muted: #94a3b8;
-      --accent: #7c3aed;
-      --accent-hover: #8b5cf6;
-      --green: #22c55e;
-      --red: #ef4444;
-      --yellow: #f59e0b;
-      --shadow: 0 16px 40px rgba(0,0,0,.25);
+<title>Online Compiler</title>
+
+<!-- Monaco Editor -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
+
+<style>
+*{
+    box-sizing:border-box;
+}
+
+html,
+body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#0d1117;
+    color:#e6edf3;
+    font-family:Arial,Helvetica,sans-serif;
+}
+
+body{
+    display:flex;
+    flex-direction:column;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.header{
+    height:64px;
+    min-height:64px;
+
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+
+    padding:0 18px;
+
+    background:#0d1117;
+    border-bottom:1px solid #30363d;
+}
+
+.logo{
+    display:flex;
+    align-items:center;
+    gap:10px;
+
+    font-size:21px;
+    font-weight:700;
+}
+
+.controls{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+
+#language{
+    width:150px;
+    height:40px;
+
+    padding:0 12px;
+
+    background:#161b22;
+    color:#fff;
+
+    border:1px solid #30363d;
+    border-radius:6px;
+
+    outline:none;
+
+    font-size:14px;
+}
+
+#language:focus{
+    border-color:#8b5cf6;
+}
+
+.run-btn,
+.stop-btn{
+    height:40px;
+
+    padding:0 18px;
+
+    color:#fff;
+
+    border:0;
+    border-radius:6px;
+
+    font-weight:700;
+    cursor:pointer;
+}
+
+.run-btn{
+    background:#7c3aed;
+}
+
+.run-btn:hover{
+    background:#6d28d9;
+}
+
+.stop-btn{
+    display:none;
+    background:#dc2626;
+}
+
+.stop-btn:hover{
+    background:#b91c1c;
+}
+
+/* =========================
+   MAIN
+========================= */
+
+.main{
+    flex:1;
+    min-height:0;
+
+    display:grid;
+
+    grid-template-columns:
+        minmax(0, 1fr)
+        minmax(360px, 42%);
+
+    gap:10px;
+
+    padding:10px;
+}
+
+/* =========================
+   EDITOR
+========================= */
+
+.editor-panel{
+    min-width:0;
+    min-height:0;
+
+    display:flex;
+    flex-direction:column;
+
+    background:#1e1e1e;
+
+    border:1px solid #30363d;
+    border-radius:7px;
+
+    overflow:hidden;
+}
+
+.editor-top{
+    height:40px;
+    min-height:40px;
+
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+
+    padding:0 12px;
+
+    background:#161b22;
+
+    border-bottom:1px solid #30363d;
+
+    font-size:13px;
+}
+
+.file-name{
+    display:flex;
+    align-items:center;
+    gap:8px;
+
+    color:#d0d7de;
+}
+
+.file-dot{
+    width:9px;
+    height:9px;
+
+    border-radius:50%;
+
+    background:#3b82f6;
+}
+
+.editor-status{
+    color:#3fb950;
+}
+
+#editor{
+    flex:1;
+    min-height:0;
+}
+
+/* =========================
+   TERMINAL
+========================= */
+
+.terminal-panel{
+    min-width:0;
+    min-height:0;
+
+    display:flex;
+    flex-direction:column;
+
+    background:#000;
+
+    border:1px solid #30363d;
+    border-radius:7px;
+
+    overflow:hidden;
+}
+
+.terminal-top{
+    height:42px;
+    min-height:42px;
+
+    display:flex;
+    align-items:center;
+
+    background:#161b22;
+
+    border-bottom:1px solid #30363d;
+}
+
+.tab{
+    height:42px;
+
+    display:flex;
+    align-items:center;
+
+    padding:0 15px;
+
+    color:#8b949e;
+
+    font-size:13px;
+
+    cursor:pointer;
+
+    border-bottom:2px solid transparent;
+}
+
+.tab:hover{
+    color:#fff;
+}
+
+.tab.active{
+    color:#fff;
+    border-bottom-color:#8b5cf6;
+}
+
+.terminal-actions{
+    margin-left:auto;
+
+    display:flex;
+    align-items:center;
+
+    gap:8px;
+
+    padding-right:10px;
+}
+
+.status-label{
+    color:#8b949e;
+    font-size:11px;
+}
+
+.clear-btn{
+    height:28px;
+
+    padding:0 10px;
+
+    border:1px solid #30363d;
+
+    border-radius:5px;
+
+    background:#21262d;
+
+    color:#c9d1d9;
+
+    cursor:pointer;
+
+    font-size:11px;
+}
+
+.clear-btn:hover{
+    background:#30363d;
+}
+
+/* =========================
+   TAB AREA
+========================= */
+
+.terminal-content{
+    flex:1;
+    min-height:0;
+    position:relative;
+}
+
+.tab-page{
+    position:absolute;
+
+    inset:0;
+
+    display:none;
+
+    flex-direction:column;
+
+    min-height:0;
+}
+
+.tab-page.active{
+    display:flex;
+}
+
+/* =========================
+   OUTPUT
+========================= */
+
+.terminal-output{
+    flex:1;
+    min-height:0;
+
+    overflow:auto;
+
+    padding:14px;
+
+    background:#000;
+
+    color:#00ff66;
+
+    font-family:
+        Consolas,
+        Monaco,
+        "Courier New",
+        monospace;
+
+    font-size:14px;
+
+    line-height:1.6;
+
+    white-space:pre-wrap;
+
+    word-break:break-word;
+}
+
+.error-output{
+    color:#ff7b72;
+}
+
+.info-output{
+    color:#79c0ff;
+}
+
+/* =========================
+   INLINE TERMINAL INPUT
+========================= */
+
+.terminal-command{
+    min-height:46px;
+
+    display:flex;
+    align-items:flex-start;
+
+    padding:10px 14px;
+
+    border-top:1px solid #202020;
+
+    background:#080808;
+}
+
+.prompt{
+    color:#3fb950;
+
+    font-family:
+        Consolas,
+        Monaco,
+        monospace;
+
+    font-size:14px;
+
+    padding-top:5px;
+
+    user-select:none;
+}
+
+#terminalInput{
+    flex:1;
+
+    min-width:0;
+
+    min-height:26px;
+
+    padding:4px 8px;
+
+    border:0;
+
+    outline:none;
+
+    resize:none;
+
+    overflow:hidden;
+
+    background:transparent;
+
+    color:#fff;
+
+    font-family:
+        Consolas,
+        Monaco,
+        "Courier New",
+        monospace;
+
+    font-size:14px;
+
+    line-height:1.5;
+}
+
+#terminalInput::placeholder{
+    color:#555;
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+.footer{
+    height:28px;
+    min-height:28px;
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+
+    padding:0 12px;
+
+    background:#161b22;
+
+    border-top:1px solid #30363d;
+
+    color:#8b949e;
+
+    font-size:11px;
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media(max-width:900px){
+
+    html,
+    body{
+        overflow:auto;
     }
 
-    * { box-sizing: border-box; }
+    .header{
+        height:auto;
+        min-height:64px;
 
-    html, body { height: 100%; }
+        flex-wrap:wrap;
 
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-        "Segoe UI", sans-serif;
-      overflow: hidden;
+        gap:10px;
+
+        padding:10px;
     }
 
-    button, select, textarea { font: inherit; }
-
-    .app {
-      height: 100vh;
-      display: grid;
-      grid-template-rows: 58px 1fr;
+    .logo{
+        width:100%;
     }
 
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 0 16px;
-      background: #0a0f1b;
-      border-bottom: 1px solid var(--border);
+    .controls{
+        width:100%;
     }
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 210px;
+    #language{
+        flex:1;
+        width:auto;
     }
 
-    .brand-logo { font-size: 22px; }
+    .main{
+        grid-template-columns:1fr;
 
-    .brand-name {
-      font-weight: 800;
-      letter-spacing: .2px;
-      white-space: nowrap;
+        min-height:1000px;
     }
 
-    .toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 9px;
-      flex: 1;
+    .editor-panel{
+        min-height:500px;
     }
 
-    .select-wrap {
-      position: relative;
+    .terminal-panel{
+        min-height:450px;
     }
-
-    #language {
-      min-width: 145px;
-      appearance: none;
-      padding: 9px 34px 9px 12px;
-      color: var(--text);
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      outline: none;
-      cursor: pointer;
-    }
-
-    #language:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(124,58,237,.15);
-    }
-
-    .select-wrap::after {
-      content: "▾";
-      position: absolute;
-      right: 11px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--muted);
-      pointer-events: none;
-    }
-
-    .btn {
-      border: 1px solid var(--border);
-      background: var(--panel);
-      color: var(--text);
-      padding: 9px 13px;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: .15s ease;
-      white-space: nowrap;
-    }
-
-    .btn:hover { background: #172033; }
-    .btn:disabled { opacity: .55; cursor: not-allowed; }
-
-    .btn-run {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      border-color: transparent;
-      background: var(--accent);
-      font-weight: 700;
-    }
-
-    .btn-run:hover { background: var(--accent-hover); }
-
-    .btn-stop {
-      display: none;
-      align-items: center;
-      gap: 7px;
-      border-color: rgba(239,68,68,.35);
-      color: #fecaca;
-      background: rgba(239,68,68,.1);
-    }
-
-    .btn-stop:hover { background: rgba(239,68,68,.18); }
-    .btn-stop.show { display: inline-flex; }
-
-    .main {
-      min-height: 0;
-      display: grid;
-      grid-template-columns: 1fr 420px;
-      gap: 10px;
-      padding: 10px;
-    }
-
-    .editor-panel, .side-panel {
-      min-height: 0;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .editor-panel {
-      display: grid;
-      grid-template-rows: 40px 1fr;
-    }
-
-    .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 12px;
-      background: var(--panel-2);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .file-name {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #dbeafe;
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .status {
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    #editor {
-      min-height: 0;
-    }
-
-
-    .side-panel {
-      display: grid;
-      grid-template-rows: 44px 1fr;
-    }
-
-    .tabs {
-      display: flex;
-      align-items: end;
-      gap: 3px;
-      padding: 0 8px;
-      background: var(--panel-2);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .tab {
-      height: 44px;
-      padding: 0 13px;
-      border: 0;
-      border-bottom: 2px solid transparent;
-      background: transparent;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .tab.active {
-      color: #fff;
-      border-bottom-color: var(--accent);
-    }
-
-    .tab-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 18px;
-      height: 18px;
-      padding: 0 5px;
-      margin-left: 5px;
-      border-radius: 999px;
-      font-size: 10px;
-      background: #1e293b;
-    }
-
-    .output-area {
-      min-height: 0;
-      overflow: auto;
-      padding: 14px;
-      background: #070b12;
-    }
-
-    .terminal-input-wrap {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      margin-bottom: 12px;
-      padding: 10px 12px;
-      background: #05080d;
-      border: 1px solid #182233;
-      border-radius: 8px;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.01);
-    }
-
-    .terminal-prompt {
-      color: #22c55e;
-      font-family: Consolas, Monaco, "Courier New", monospace;
-      font-size: 13px;
-      line-height: 1.55;
-      user-select: none;
-    }
-
-    .terminal-input {
-      width: 100%;
-      min-height: 34px;
-      max-height: 120px;
-      resize: vertical;
-      border: 0;
-      outline: 0;
-      padding: 0;
-      background: transparent;
-      color: #d1fae5;
-      font-family: Consolas, Monaco, "Courier New", monospace;
-      font-size: 13px;
-      line-height: 1.55;
-    }
-
-    .terminal-input::placeholder {
-      color: #64748b;
-    }
-
-    .output-pane {
-      display: none;
-      min-height: 100%;
-    }
-
-    .output-pane.active { display: block; }
-
-    .console {
-      margin: 0;
-      min-height: 100%;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-family: Consolas, Monaco, "Courier New", monospace;
-      font-size: 13px;
-      line-height: 1.55;
-      color: #d1fae5;
-    }
-
-    .error-console { color: #fecaca; }
-
-    .info-console { color: #cbd5e1; }
-
-    .empty-state {
-      min-height: 100%;
-      display: grid;
-      place-items: center;
-      text-align: center;
-      padding: 30px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .welcome {
-      line-height: 1.6;
-    }
-
-    .welcome strong { color: #fff; }
-
-    .spinner {
-      width: 12px;
-      height: 12px;
-      border: 2px solid rgba(255,255,255,.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin .7s linear infinite;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .mobile-run {
-      display: none;
-    }
-
-    @media (max-width: 980px) {
-      body { overflow: auto; }
-      .app { height: auto; min-height: 100vh; }
-      .topbar { height: auto; min-height: 58px; flex-wrap: wrap; padding: 10px; }
-      .brand { min-width: auto; }
-      .toolbar { justify-content: flex-start; flex-wrap: wrap; }
-      .main {
-        grid-template-columns: 1fr;
-        grid-template-rows: 62vh 38vh;
-        min-height: calc(100vh - 78px);
-      }
-      .side-panel { min-height: 280px; }
-    }
-
-    @media (max-width: 620px) {
-      .brand-name { font-size: 15px; }
-      #language { min-width: 120px; }
-      .btn { padding: 9px 11px; }
-      .main { padding: 6px; gap: 6px; }
-      .editor-panel, .side-panel { border-radius: 8px; }
-    }
-  </style>
+}
+</style>
 </head>
 
 <body>
-  <div class="app">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-logo">🚀</div>
-        <div class="brand-name">Online Compiler</div>
-      </div>
 
-      <div class="toolbar">
-        <div class="select-wrap">
-          <select id="language" aria-label="Programming language">
+<!-- =========================
+     HEADER
+========================= -->
+
+<header class="header">
+
+    <div class="logo">
+        🚀 Online Compiler
+    </div>
+
+    <div class="controls">
+
+        <select id="language">
+
             <option value="python">Python</option>
             <option value="javascript">JavaScript</option>
             <option value="php">PHP</option>
@@ -381,392 +524,1193 @@
             <option value="java">Java</option>
             <option value="go">Go</option>
             <option value="rust">Rust</option>
-          </select>
-        </div>
 
-        <button class="btn btn-run" id="runBtn" type="button">
-          <span id="runIcon">▶</span>
-          <span>Run Code</span>
+        </select>
+
+        <button
+            id="runButton"
+            class="run-btn"
+            onclick="runCode()">
+
+            ▶ Run Code
+
         </button>
 
-        <button class="btn btn-stop" id="stopBtn" type="button">
-          <span>■</span>
-          <span>Stop</span>
-        </button>
-      </div>
-    </header>
+        <button
+            id="stopButton"
+            class="stop-btn"
+            onclick="stopCode()">
 
-    <main class="main">
-      <section class="editor-panel">
-        <div class="panel-header">
-          <div class="file-name">
-            <span id="fileIcon">🐍</span>
-            <span id="fileName">main.py</span>
-          </div>
-          <div class="status" id="status">Ready</div>
+            ■ Stop
+
+        </button>
+
+    </div>
+
+</header>
+
+
+<!-- =========================
+     MAIN
+========================= -->
+
+<main class="main">
+
+    <!-- EDITOR -->
+
+    <section class="editor-panel">
+
+        <div class="editor-top">
+
+            <div class="file-name">
+
+                <span class="file-dot"></span>
+
+                <span id="fileName">
+                    main.py
+                </span>
+
+            </div>
+
+            <span
+                id="editorStatus"
+                class="editor-status">
+
+                Ready
+
+            </span>
+
         </div>
 
         <div id="editor"></div>
 
-</div>
-      </section>
+    </section>
 
-      <section class="side-panel">
-        <div class="tabs" role="tablist" aria-label="Program result">
-          <button class="tab active" data-tab="output" type="button" role="tab">Output <span class="tab-badge" id="outputBadge">0</span></button>
-          <button class="tab" data-tab="error" type="button" role="tab">Error <span class="tab-badge" id="errorBadge">0</span></button>
-          <button class="tab" data-tab="info" type="button" role="tab">Info</button>
-        </div>
 
-        <div class="output-area">
-          <div class="terminal-input-wrap">
-            <div class="terminal-prompt">$</div>
-            <textarea id="terminalInput" class="terminal-input" spellcheck="false" placeholder="Type program input here, then press Run Code..." aria-label="Program input"></textarea>
-          </div>
-          <div class="output-pane active" id="pane-output">
-            <pre class="console" id="outputText"></pre>
-            <div class="empty-state welcome" id="outputEmpty">
-              <div>
-                <strong>Ready to run</strong><br />
-                Select a language, write your code, and press <strong>Run Code</strong>.
-              </div>
+    <!-- TERMINAL -->
+
+    <section class="terminal-panel">
+
+        <div class="terminal-top">
+
+            <div
+                id="outputTabButton"
+                class="tab active"
+                onclick="showTab('output')">
+
+                Output
+
             </div>
-          </div>
 
-          <div class="output-pane" id="pane-error">
-            <pre class="console error-console" id="errorText"></pre>
-            <div class="empty-state" id="errorEmpty">No errors.</div>
-          </div>
+            <div
+                id="errorTabButton"
+                class="tab"
+                onclick="showTab('error')">
 
-          <div class="output-pane" id="pane-info">
-            <pre class="console info-console" id="infoText"></pre>
-          </div>
+                Error
+
+            </div>
+
+            <div
+                id="infoTabButton"
+                class="tab"
+                onclick="showTab('info')">
+
+                Info
+
+            </div>
+
+            <div class="terminal-actions">
+
+                <span
+                    id="terminalStatus"
+                    class="status-label">
+
+                    Ready
+
+                </span>
+
+                <button
+                    class="clear-btn"
+                    onclick="clearTerminal()">
+
+                    Clear
+
+                </button>
+
+            </div>
+
         </div>
-      </section>
-    </main>
-  </div>
 
-  <!-- Monaco Editor -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
-  <script>
-    const languageEl = document.getElementById("language");
-    const runBtn = document.getElementById("runBtn");
-    const stopBtn = document.getElementById("stopBtn");
-    const statusEl = document.getElementById("status");
-    const outputText = document.getElementById("outputText");
-    const errorText = document.getElementById("errorText");
-    const infoText = document.getElementById("infoText");
-    const outputEmpty = document.getElementById("outputEmpty");
-    const errorEmpty = document.getElementById("errorEmpty");
-    const outputBadge = document.getElementById("outputBadge");
-    const errorBadge = document.getElementById("errorBadge");
-    const fileName = document.getElementById("fileName");
-    const fileIcon = document.getElementById("fileIcon");
 
-    let editor = null;
-    let controller = null;
-    let isRunning = false;
+        <div class="terminal-content">
 
-    const languageConfig = {
-      python: {
-        monaco: "python",
-        file: "main.py",
-        icon: "🐍",
-        template: `print("Hello Python")
-print(10 + 20)`
-      },
-      javascript: {
-        monaco: "javascript",
-        file: "main.js",
-        icon: "🟨",
-        template: `console.log("Hello JavaScript");
-console.log(10 + 20);`
-      },
-      php: {
-        monaco: "php",
-        file: "main.php",
-        icon: "🐘",
-        template: `<?php
+            <!-- OUTPUT PAGE -->
 
-echo "Hello PHP\\n";
-echo 10 + 20;
+            <div
+                id="outputPage"
+                class="tab-page active">
+
+                <div
+                    id="output"
+                    class="terminal-output">
+
+                    Online Compiler
+
+                    Ready.
+
+                    Select a language and click Run Code.
+
+                </div>
+
+
+                <!-- INPUT IS INSIDE SAME TERMINAL -->
+
+                <div class="terminal-command">
+
+                    <span class="prompt">
+                        $
+                    </span>
+
+                    <textarea
+                        id="terminalInput"
+                        rows="1"
+                        placeholder="Type input here and press Enter..."
+                        disabled></textarea>
+
+                </div>
+
+            </div>
+
+
+            <!-- ERROR PAGE -->
+
+            <div
+                id="errorPage"
+                class="tab-page">
+
+                <div
+                    id="errorOutput"
+                    class="terminal-output error-output">
+
+                    No errors.
+
+                </div>
+
+            </div>
+
+
+            <!-- INFO PAGE -->
+
+            <div
+                id="infoPage"
+                class="tab-page">
+
+                <div
+                    id="infoOutput"
+                    class="terminal-output info-output">
+
+                    Compiler is ready.
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<!-- FOOTER -->
+
+<footer class="footer">
+
+    <span id="connectionStatus">
+        Connecting...
+    </span>
+
+    <span>
+        Ctrl + Enter = Run
+    </span>
+
+</footer>
+
+
+<script>
+
+/* ===================================
+   VARIABLES
+=================================== */
+
+let editor = null;
+
+let socket = null;
+
+let running = false;
+
+
+/* ===================================
+   LANGUAGE TEMPLATES
+=================================== */
+
+const templates = {
+
+    python:{
+        file:"main.py",
+        language:"python",
+        code:
+`print("Enter two numbers:")
+
+a = int(input())
+b = int(input())
+
+print("Sum =", a + b)`
+    },
+
+    javascript:{
+        file:"main.js",
+        language:"javascript",
+        code:
+`const fs = require("fs");
+
+const input =
+    fs.readFileSync(0, "utf8")
+    .trim()
+    .split(/\\s+/)
+    .map(Number);
+
+const a = input[0];
+const b = input[1];
+
+console.log("Sum =", a + b);`
+    },
+
+    php:{
+        file:"main.php",
+        language:"php",
+        code:
+`<?php
+
+echo "Enter two numbers:\\n";
+
+$a = intval(trim(fgets(STDIN)));
+$b = intval(trim(fgets(STDIN)));
+
+echo "Sum = " . ($a + $b) . PHP_EOL;
 
 ?>`
-      },
-      c: {
-        monaco: "c",
-        file: "main.c",
-        icon: "🔵",
-        template: `#include <stdio.h>
+    },
+
+    c:{
+        file:"main.c",
+        language:"c",
+        code:
+`#include <stdio.h>
 
 int main() {
-    printf("Hello C\\n");
-    printf("%d\\n", 10 + 20);
+
+    int a, b;
+
+    printf("Enter two numbers: ");
+
+    scanf("%d %d", &a, &b);
+
+    printf("Sum = %d\\n", a + b);
+
     return 0;
 }`
-      },
-      cpp: {
-        monaco: "cpp",
-        file: "main.cpp",
-        icon: "🔷",
-        template: `#include <iostream>
+    },
+
+    cpp:{
+        file:"main.cpp",
+        language:"cpp",
+        code:
+`#include <iostream>
+
 using namespace std;
 
 int main() {
-    cout << "Hello C++" << endl;
-    cout << 10 + 20 << endl;
+
+    int a, b;
+
+    cout << "Enter two numbers: ";
+
+    cin >> a >> b;
+
+    cout << "Sum = "
+         << a + b
+         << endl;
+
     return 0;
 }`
-      },
-      java: {
-        monaco: "java",
-        file: "Main.java",
-        icon: "☕",
-        template: `public class Main {
+    },
+
+    java:{
+        file:"Main.java",
+        language:"java",
+        code:
+`import java.util.Scanner;
+
+public class Main {
+
     public static void main(String[] args) {
-        System.out.println("Hello Java");
-        System.out.println(10 + 20);
+
+        Scanner sc =
+            new Scanner(System.in);
+
+        System.out.print(
+            "Enter two numbers: "
+        );
+
+        int a = sc.nextInt();
+        int b = sc.nextInt();
+
+        System.out.println(
+            "Sum = " + (a + b)
+        );
     }
 }`
-      },
-      go: {
-        monaco: "go",
-        file: "main.go",
-        icon: "🐹",
-        template: `package main
+    },
+
+    go:{
+        file:"main.go",
+        language:"go",
+        code:
+`package main
 
 import "fmt"
 
 func main() {
-    fmt.Println("Hello Go")
-    fmt.Println(10 + 20)
+
+    var a, b int
+
+    fmt.Print("Enter two numbers: ")
+
+    fmt.Scan(&a, &b)
+
+    fmt.Println("Sum =", a+b)
 }`
-      },
-      rust: {
-        monaco: "rust",
-        file: "main.rs",
-        icon: "🦀",
-        template: `fn main() {
-    println!("Hello Rust");
-    println!("{}", 10 + 20);
+    },
+
+    rust:{
+        file:"main.rs",
+        language:"rust",
+        code:
+`use std::io::{self, Read};
+
+fn main() {
+
+    let mut input = String::new();
+
+    io::stdin()
+        .read_to_string(&mut input)
+        .unwrap();
+
+    let values: Vec<i32> =
+        input
+        .split_whitespace()
+        .map(|x| x.parse().unwrap())
+        .collect();
+
+    println!("Sum = {}",
+        values[0] + values[1]
+    );
 }`
-      }
-    };
-
-    function setStatus(text) {
-      statusEl.textContent = text;
     }
 
-    function setRunning(running) {
-      isRunning = running;
-      runBtn.disabled = running;
-      stopBtn.classList.toggle("show", running);
-      runBtn.innerHTML = running
-        ? '<span class="spinner"></span><span>Running...</span>'
-        : '<span id="runIcon">▶</span><span>Run Code</span>';
+};
+
+
+/* ===================================
+   MONACO CONFIG
+=================================== */
+
+require.config({
+
+    paths:{
+        vs:
+        "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs"
     }
 
-    function clearResults() {
-      outputText.textContent = "";
-      errorText.textContent = "";
-      infoText.textContent = "";
-      outputEmpty.style.display = "grid";
-      errorEmpty.style.display = "grid";
-      outputBadge.textContent = "0";
-      errorBadge.textContent = "0";
+});
+
+
+require(
+    ["vs/editor/editor.main"],
+    function(){
+
+        editor =
+            monaco.editor.create(
+                document.getElementById(
+                    "editor"
+                ),
+                {
+                    value:
+                        templates.python.code,
+
+                    language:
+                        templates.python.language,
+
+                    theme:"vs-dark",
+
+                    automaticLayout:true,
+
+                    minimap:{
+                        enabled:false
+                    },
+
+                    fontSize:14,
+
+                    lineNumbers:"on",
+
+                    scrollBeyondLastLine:false,
+
+                    wordWrap:"off",
+
+                    tabSize:4,
+
+                    padding:{
+                        top:12
+                    }
+                }
+            );
+
     }
+);
 
-    function showOutput(text) {
-      outputText.textContent = text || "Program finished successfully with no output.";
-      outputEmpty.style.display = "none";
-      outputBadge.textContent = text ? "1" : "0";
-      activateTab("output");
-    }
 
-    function showError(text) {
-      errorText.textContent = text || "Unknown error.";
-      errorEmpty.style.display = "none";
-      errorBadge.textContent = "1";
-      activateTab("error");
-    }
+/* ===================================
+   WEBSOCKET
+=================================== */
 
-    function showInfo(text) {
-      infoText.textContent = text;
-    }
+function connectWebSocket(){
 
-    function activateTab(name) {
-      document.querySelectorAll(".tab").forEach(tab => {
-        tab.classList.toggle("active", tab.dataset.tab === name);
-      });
+    const protocol =
+        location.protocol === "https:"
+            ? "wss:"
+            : "ws:";
 
-      document.querySelectorAll(".output-pane").forEach(pane => {
-        pane.classList.toggle("active", pane.id === `pane-${name}`);
-      });
-    }
 
-    document.querySelectorAll(".tab").forEach(tab => {
-      tab.addEventListener("click", () => activateTab(tab.dataset.tab));
-    });
+    const wsUrl =
+        protocol +
+        "//" +
+        location.host +
+        "/ws";
 
-    function updateFileUI() {
-      const config = languageConfig[languageEl.value];
-      fileName.textContent = config.file;
-      fileIcon.textContent = config.icon;
-    }
 
-    require.config({
-      paths: {
-        vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs"
-      }
-    });
+    socket =
+        new WebSocket(wsUrl);
 
-    require(["vs/editor/editor.main"], function () {
-      editor = monaco.editor.create(document.getElementById("editor"), {
-        value: languageConfig.python.template,
-        language: languageConfig.python.monaco,
-        theme: "vs-dark",
-        automaticLayout: true,
-        minimap: { enabled: true },
-        fontSize: 14,
-        lineNumbers: "on",
-        roundedSelection: false,
-        scrollBeyondLastLine: false,
-        tabSize: 4,
-        insertSpaces: true,
-        wordWrap: "off",
-        padding: { top: 12, bottom: 12 },
-        suggestOnTriggerCharacters: true,
-        quickSuggestions: true
-      });
 
-      setStatus("Ready");
-    });
+    socket.onopen =
+        function(){
 
-    languageEl.addEventListener("change", () => {
-      if (!editor) return;
+            document.getElementById(
+                "connectionStatus"
+            ).textContent =
+                "● Connected";
 
-      const config = languageConfig[languageEl.value];
-      const model = editor.getModel();
+            terminalStatus(
+                "Connected"
+            );
 
-      monaco.editor.setModelLanguage(model, config.monaco);
-      editor.setValue(config.template);
-      updateFileUI();
-      clearResults();
-      showInfo(`Language: ${languageEl.options[languageEl.selectedIndex].text}\nFile: ${config.file}`);
-      setStatus("Ready");
-    });
+            setInfo(
+                "Connected to compiler server."
+            );
 
-    async function runCode() {
-      if (!editor || isRunning) return;
+        };
 
-      const code = editor.getValue();
-      const language = languageEl.value;
-      const input = document.getElementById("terminalInput").value;
 
-      if (!code.trim()) {
-        showError("Your code editor is empty.");
+    socket.onmessage =
+        function(event){
+
+            let message;
+
+            try{
+
+                message =
+                    JSON.parse(
+                        event.data
+                    );
+
+            }catch(error){
+
+                return;
+            }
+
+
+            if(
+                message.type ===
+                "output"
+            ){
+
+                appendOutput(
+                    message.data
+                );
+
+            }
+
+
+            else if(
+                message.type ===
+                "error"
+            ){
+
+                appendError(
+                    message.data
+                );
+
+            }
+
+
+            else if(
+                message.type ===
+                "started"
+            ){
+
+                running = true;
+
+                document.getElementById(
+                    "terminalInput"
+                ).disabled = false;
+
+                document.getElementById(
+                    "terminalInput"
+                ).focus();
+
+                terminalStatus(
+                    "Running"
+                );
+
+            }
+
+
+            else if(
+                message.type ===
+                "finished"
+            ){
+
+                running = false;
+
+                document.getElementById(
+                    "terminalInput"
+                ).disabled = true;
+
+                document.getElementById(
+                    "runButton"
+                ).style.display =
+                    "inline-block";
+
+                document.getElementById(
+                    "stopButton"
+                ).style.display =
+                    "none";
+
+                terminalStatus(
+                    "Finished"
+                );
+
+                document.getElementById(
+                    "editorStatus"
+                ).textContent =
+                    "Completed";
+
+            }
+
+
+            else if(
+                message.type ===
+                "stopped"
+            ){
+
+                running = false;
+
+                document.getElementById(
+                    "terminalInput"
+                ).disabled = true;
+
+                document.getElementById(
+                    "runButton"
+                ).style.display =
+                    "inline-block";
+
+                document.getElementById(
+                    "stopButton"
+                ).style.display =
+                    "none";
+
+                appendOutput(
+                    "\n[Program stopped]\n"
+                );
+
+                terminalStatus(
+                    "Stopped"
+                );
+
+            }
+
+
+            else if(
+                message.type ===
+                "info"
+            ){
+
+                setInfo(
+                    message.data
+                );
+
+            }
+
+        };
+
+
+    socket.onclose =
+        function(){
+
+            document.getElementById(
+                "connectionStatus"
+            ).textContent =
+                "● Disconnected";
+
+
+            document.getElementById(
+                "connectionStatus"
+            ).style.color =
+                "#f85149";
+
+
+            terminalStatus(
+                "Disconnected"
+            );
+
+        };
+
+
+    socket.onerror =
+        function(){
+
+            document.getElementById(
+                "connectionStatus"
+            ).textContent =
+                "● Connection error";
+
+        };
+
+}
+
+
+/* ===================================
+   TERMINAL INPUT
+=================================== */
+
+document
+    .getElementById(
+        "terminalInput"
+    )
+    .addEventListener(
+        "keydown",
+        function(event){
+
+            if(
+                event.key === "Enter" &&
+                !event.shiftKey
+            ){
+
+                event.preventDefault();
+
+
+                if(!running){
+                    return;
+                }
+
+
+                const value =
+                    this.value;
+
+
+                appendOutput(
+                    value + "\n"
+                );
+
+
+                if(
+                    socket &&
+                    socket.readyState ===
+                    WebSocket.OPEN
+                ){
+
+                    socket.send(
+                        JSON.stringify({
+                            type:"input",
+                            data:
+                                value + "\n"
+                        })
+                    );
+
+                }
+
+
+                this.value = "";
+
+            }
+
+            else if(
+                event.key === "c" &&
+                event.ctrlKey
+            ){
+
+                event.preventDefault();
+
+                stopCode();
+
+            }
+
+        }
+    );
+
+
+/* ===================================
+   LANGUAGE CHANGE
+=================================== */
+
+document
+    .getElementById(
+        "language"
+    )
+    .addEventListener(
+        "change",
+        function(){
+
+            const lang =
+                this.value;
+
+            const config =
+                templates[lang];
+
+
+            document.getElementById(
+                "fileName"
+            ).textContent =
+                config.file;
+
+
+            if(editor){
+
+                editor.setValue(
+                    config.code
+                );
+
+
+                monaco.editor
+                    .setModelLanguage(
+                        editor.getModel(),
+                        config.language
+                    );
+
+            }
+
+
+            document.getElementById(
+                "editorStatus"
+            ).textContent =
+                "Ready";
+
+
+            clearTerminal();
+
+
+            setInfo(
+                "Language changed to " +
+                lang.toUpperCase()
+            );
+
+        }
+    );
+
+
+/* ===================================
+   RUN
+=================================== */
+
+function runCode(){
+
+    if(!editor){
         return;
-      }
-
-      controller = new AbortController();
-      setRunning(true);
-      setStatus("Running...");
-      clearResults();
-      showInfo(
-        `Language: ${languageEl.options[languageEl.selectedIndex].text}\n` +
-        `Status: Running\n` +
-        `Input bytes: ${new TextEncoder().encode(input).length}`
-      );
-
-      const startedAt = performance.now();
-
-      try {
-        const response = await fetch("/run", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            code,
-            language,
-            input
-          }),
-          signal: controller.signal
-        });
-
-        const raw = await response.text();
-        let result;
-
-        try {
-          result = JSON.parse(raw);
-        } catch {
-          throw new Error(raw || `Server returned HTTP ${response.status}`);
-        }
-
-        if (!response.ok) {
-          throw new Error(result.output || `HTTP ${response.status}`);
-        }
-
-        const output = result.output || "";
-        const elapsed = ((performance.now() - startedAt) / 1000).toFixed(2);
-
-        if (/^ERROR\s*:/i.test(output)) {
-          showError(output.replace(/^ERROR\s*:\s*/i, ""));
-          showInfo(
-            `Language: ${languageEl.options[languageEl.selectedIndex].text}\n` +
-            `Status: Failed\n` +
-            `Time: ${elapsed}s`
-          );
-          setStatus("Failed");
-        } else {
-          showOutput(output);
-          showInfo(
-            `Language: ${languageEl.options[languageEl.selectedIndex].text}\n` +
-            `Status: Completed\n` +
-            `Time: ${elapsed}s`
-          );
-          setStatus("Completed");
-        }
-      } catch (error) {
-        if (error.name === "AbortError") {
-          showInfo("Execution stopped by user.");
-          setStatus("Stopped");
-        } else {
-          showError(error.message || "Could not connect to the compiler server.");
-          showInfo("The compiler request failed. Check the Render service logs and /run endpoint.");
-          setStatus("Request failed");
-        }
-      } finally {
-        controller = null;
-        setRunning(false);
-      }
     }
 
-    function stopCode() {
-      if (controller) {
-        controller.abort();
-        controller = null;
-      }
-      setRunning(false);
-      setStatus("Stopping...");
+
+    if(
+        !socket ||
+        socket.readyState !==
+        WebSocket.OPEN
+    ){
+
+        showError(
+            "Compiler server is not connected."
+        );
+
+        showTab("error");
+
+        return;
     }
 
-    runBtn.addEventListener("click", runCode);
-    stopBtn.addEventListener("click", stopCode);
 
-    document.addEventListener("keydown", (event) => {
-      const isRunShortcut =
-        (event.ctrlKey || event.metaKey) &&
-        event.key.toLowerCase() === "enter";
+    const code =
+        editor.getValue();
 
-      if (isRunShortcut) {
-        event.preventDefault();
-        runCode();
-      }
-    });
 
-    updateFileUI();
-    showInfo("Select a language, write your code, optionally enter program input in the terminal area, then press Run Code.");
-  </script>
+    const language =
+        document.getElementById(
+            "language"
+        ).value;
+
+
+    if(!code.trim()){
+
+        showError(
+            "Code is empty."
+        );
+
+        showTab("error");
+
+        return;
+    }
+
+
+    clearTerminal();
+
+
+    appendOutput(
+        "$ Running " +
+        language.toUpperCase() +
+        "...\n\n"
+    );
+
+
+    running = true;
+
+
+    document.getElementById(
+        "runButton"
+    ).style.display =
+        "none";
+
+
+    document.getElementById(
+        "stopButton"
+    ).style.display =
+        "inline-block";
+
+
+    document.getElementById(
+        "terminalInput"
+    ).disabled = false;
+
+
+    document.getElementById(
+        "terminalInput"
+    ).value = "";
+
+
+    document.getElementById(
+        "terminalInput"
+    ).focus();
+
+
+    document.getElementById(
+        "editorStatus"
+    ).textContent =
+        "Running";
+
+
+    terminalStatus(
+        "Running"
+    );
+
+
+    socket.send(
+        JSON.stringify({
+            type:"run",
+            code:code,
+            language:language
+        })
+    );
+
+}
+
+
+/* ===================================
+   STOP
+=================================== */
+
+function stopCode(){
+
+    if(
+        socket &&
+        socket.readyState ===
+        WebSocket.OPEN
+    ){
+
+        socket.send(
+            JSON.stringify({
+                type:"stop"
+            })
+        );
+
+    }
+
+}
+
+
+/* ===================================
+   OUTPUT
+=================================== */
+
+function appendOutput(text){
+
+    const output =
+        document.getElementById(
+            "output"
+        );
+
+    output.textContent += text;
+
+    output.scrollTop =
+        output.scrollHeight;
+
+}
+
+
+/* ===================================
+   ERROR
+=================================== */
+
+function appendError(text){
+
+    const error =
+        document.getElementById(
+            "errorOutput"
+        );
+
+    error.textContent += text;
+
+    error.scrollTop =
+        error.scrollHeight;
+
+    showTab("error");
+
+}
+
+
+/* ===================================
+   SHOW ERROR
+=================================== */
+
+function showError(text){
+
+    document.getElementById(
+        "errorOutput"
+    ).textContent =
+        text;
+
+}
+
+
+/* ===================================
+   INFO
+=================================== */
+
+function setInfo(text){
+
+    document.getElementById(
+        "infoOutput"
+    ).textContent =
+        text;
+
+}
+
+
+/* ===================================
+   TERMINAL STATUS
+=================================== */
+
+function terminalStatus(text){
+
+    document.getElementById(
+        "terminalStatus"
+    ).textContent =
+        text;
+
+}
+
+
+/* ===================================
+   TABS
+=================================== */
+
+function showTab(name){
+
+    const outputPage =
+        document.getElementById(
+            "outputPage"
+        );
+
+    const errorPage =
+        document.getElementById(
+            "errorPage"
+        );
+
+    const infoPage =
+        document.getElementById(
+            "infoPage"
+        );
+
+
+    outputPage.classList.remove(
+        "active"
+    );
+
+    errorPage.classList.remove(
+        "active"
+    );
+
+    infoPage.classList.remove(
+        "active"
+    );
+
+
+    document.getElementById(
+        "outputTabButton"
+    ).classList.remove(
+        "active"
+    );
+
+    document.getElementById(
+        "errorTabButton"
+    ).classList.remove(
+        "active"
+    );
+
+    document.getElementById(
+        "infoTabButton"
+    ).classList.remove(
+        "active"
+    );
+
+
+    if(name === "output"){
+
+        outputPage.classList.add(
+            "active"
+        );
+
+        document.getElementById(
+            "outputTabButton"
+        ).classList.add(
+            "active"
+        );
+
+    }
+
+
+    else if(name === "error"){
+
+        errorPage.classList.add(
+            "active"
+        );
+
+        document.getElementById(
+            "errorTabButton"
+        ).classList.add(
+            "active"
+        );
+
+    }
+
+
+    else if(name === "info"){
+
+        infoPage.classList.add(
+            "active"
+        );
+
+        document.getElementById(
+            "infoTabButton"
+        ).classList.add(
+            "active"
+        );
+
+    }
+
+}
+
+
+/* ===================================
+   CLEAR
+=================================== */
+
+function clearTerminal(){
+
+    document.getElementById(
+        "output"
+    ).textContent = "";
+
+
+    document.getElementById(
+        "errorOutput"
+    ).textContent =
+        "No errors.";
+
+
+    document.getElementById(
+        "terminalInput"
+    ).value = "";
+
+
+    terminalStatus(
+        "Ready"
+    );
+
+
+    showTab(
+        "output"
+    );
+
+}
+
+
+/* ===================================
+   CTRL + ENTER
+=================================== */
+
+document.addEventListener(
+    "keydown",
+    function(event){
+
+        if(
+            event.ctrlKey &&
+            event.key === "Enter"
+        ){
+
+            event.preventDefault();
+
+            runCode();
+
+        }
+
+    }
+);
+
+
+/* ===================================
+   START
+=================================== */
+
+connectWebSocket();
+
+</script>
+
 </body>
 </html>
