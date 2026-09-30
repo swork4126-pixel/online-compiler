@@ -1,101 +1,215 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Multi Language Compiler</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Online Compiler</title>
 
 <style>
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+}
+
 body{
-    font-family: Arial, sans-serif;
-    max-width: 1000px;
-    margin: 20px auto;
-    padding: 20px;
+background:#0d1117;
+color:white;
+font-family:Arial,sans-serif;
+padding:20px;
 }
 
 h1{
-    margin-bottom:20px;
+margin-bottom:20px;
+}
+
+.toolbar{
+display:flex;
+gap:10px;
+margin-bottom:15px;
 }
 
 select{
-    padding:10px;
-    margin-bottom:10px;
-}
-
-textarea{
-    width:100%;
-    height:350px;
-    font-family: Consolas, monospace;
-    font-size:15px;
-    padding:10px;
+padding:10px;
+background:#161b22;
+color:white;
+border:1px solid #30363d;
+border-radius:5px;
 }
 
 button{
-    padding:10px 20px;
-    cursor:pointer;
-    margin-top:10px;
+padding:10px 20px;
+border:none;
+background:#7c3aed;
+color:white;
+border-radius:5px;
+cursor:pointer;
+font-weight:bold;
+}
+
+button:hover{
+opacity:.9;
+}
+
+textarea{
+width:100%;
+height:400px;
+background:#161b22;
+color:#f8fafc;
+border:1px solid #30363d;
+padding:15px;
+font-family:Consolas,monospace;
+font-size:15px;
+border-radius:5px;
 }
 
 #output{
-    background:#111;
-    color:#00ff00;
-    padding:15px;
-    margin-top:20px;
-    min-height:120px;
-    white-space:pre-wrap;
-    border-radius:5px;
+margin-top:20px;
+background:black;
+color:#00ff66;
+padding:15px;
+min-height:150px;
+border-radius:5px;
+white-space:pre-wrap;
+overflow:auto;
 }
 </style>
-
 </head>
+
 <body>
 
-<h1>Multi Language Compiler</h1>
+<h1>🚀 Online Compiler</h1>
+
+<div class="toolbar">
 
 <select id="language" onchange="changeTemplate()">
-    <option value="python">Python</option>
-    <option value="javascript">JavaScript</option>
-    <option value="php">PHP</option>
-    <option value="c">C</option>
-    <option value="cpp">C++</option>
-    <option value="java">Java</option>
-    <option value="go">Go</option>
-    <option value="rust">Rust</option>
+<option value="python">Python</option>
+<option value="javascript">JavaScript</option>
+<option value="php">PHP</option>
+<option value="c">C</option>
+<option value="cpp">C++</option>
+<option value="java">Java</option>
+<option value="go">Go</option>
+<option value="rust">Rust</option>
 </select>
 
-<br>
+<button onclick="runCode()">▶ Run Code</button>
+
+</div>
 
 <textarea id="code">print("Hello World")</textarea>
 
-<br>
-
-<button onclick="runCode()">Run Code</button>
-
-<h3>Output</h3>
-
-<div id="output"></div>
+<div id="output">
+Output will appear here...
+</div>
 
 <script>
 
 function changeTemplate(){
 
-const lang =
-document.getElementById("language").value;
-
-const editor =
-document.getElementById("code");
+const lang=document.getElementById("language").value;
+const code=document.getElementById("code");
 
 if(lang==="python"){
-editor.value=`print("Hello World")`;
+code.value=`print("Hello World")`;
 }
 
 else if(lang==="javascript"){
-editor.value=`console.log("Hello World");`;
+code.value=`console.log("Hello World");`;
 }
 
 else if(lang==="php"){
-editor.value=`<?php
+code.value=`<?php
 echo "Hello World";
 ?>`;
 }
 
-else
+else if(lang==="c"){
+code.value=`#include <stdio.h>
+
+int main() {
+printf("Hello World");
+return 0;
+}`;
+}
+
+else if(lang==="cpp"){
+code.value=`#include <iostream>
+using namespace std;
+
+int main() {
+cout << "Hello World";
+return 0;
+}`;
+}
+
+else if(lang==="java"){
+code.value=`public class Main {
+public static void main(String[] args){
+System.out.println("Hello World");
+}
+}`;
+}
+
+else if(lang==="go"){
+code.value=`package main
+
+import "fmt"
+
+func main(){
+fmt.Println("Hello World")
+}`;
+}
+
+else if(lang==="rust"){
+code.value=`fn main() {
+println!("Hello World");
+}`;
+}
+
+}
+
+async function runCode(){
+
+const code =
+document.getElementById("code").value;
+
+const language =
+document.getElementById("language").value;
+
+document.getElementById("output").innerText =
+"Running...";
+
+try{
+
+const response =
+await fetch("/run",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+code,
+language
+})
+});
+
+const result =
+await response.json();
+
+document.getElementById("output").innerText =
+result.output || "No Output";
+
+}catch(error){
+
+document.getElementById("output").innerText =
+error.message;
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
