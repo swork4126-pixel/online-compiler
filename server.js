@@ -9,18 +9,55 @@ const app = express();
 app.use(express.json({ limit: "5mb" }));
 app.use(express.static("."));
 
-const TIMEOUT = 30000;
+/*
+  Time limits
+*/
+const DEFAULT_TIMEOUT = 30000;
+const GO_TIMEOUT = 120000;
+const JAVA_TIMEOUT = 60000;
+const RUST_TIMEOUT = 60000;
+
+/*
+  Shared Go cache.
+  This helps later Go executions become faster.
+*/
+const GO_CACHE = "/tmp/go-build-cache";
+const GO_PATH = "/tmp/go-path";
+
+try {
+    fs.mkdirSync(GO_CACHE, { recursive: true });
+    fs.mkdirSync(GO_PATH, { recursive: true });
+} catch (_) {}
+
+
+function cleanup(dir) {
+    try {
+        fs.rmSync(dir, {
+            recursive: true,
+            force: true
+        });
+    } catch (_) {}
+}
+
 
 app.post("/run", (req, res) => {
+
     const { code, language } = req.body;
 
-    if (typeof code !== "string" || !language) {
+    if (typeof code !== "string") {
         return res.status(400).json({
-            output: "Code and language are required."
+            output: "Invalid code."
         });
     }
 
-    const allowedLanguages = [
+    if (!language) {
+        return res.status(400).json({
+            output: "Language not selected."
+        });
+    }
+
+
+    const supportedLanguages = [
         "python",
         "javascript",
         "php",
@@ -31,133 +68,275 @@ app.post("/run", (req, res) => {
         "rust"
     ];
 
-    if (!allowedLanguages.includes(language)) {
+
+    if (!supportedLanguages.includes(language)) {
         return res.status(400).json({
             output: "Unsupported language: " + language
         });
     }
 
-    const runId = Date.now().toString();
+
+    /*
+      Unique temporary working directory
+    */
     const workDir = fs.mkdtempSync(
-        path.join(os.tmpdir(), "online-compiler-")
+        path.join(os.tmpdir(), "compiler-")
     );
 
+
     let sourceFile = "";
+    let binaryFile = "";
     let command = "";
+    let timeout = DEFAULT_TIMEOUT;
 
+
+    /*
+      PYTHON
+    */
     if (language === "python") {
+
         sourceFile = "main.py";
-        command = `python3 ${sourceFile}`;
-    }
-
-    else if (language === "javascript") {
-        sourceFile = "main.js";
-        command = `node ${sourceFile}`;
-    }
-
-    else if (language === "php") {
-        sourceFile = "main.php";
-        command = `php ${sourceFile}`;
-    }
-
-    else if (language === "c") {
-        sourceFile = "main.c";
-        command = `gcc ${sourceFile} -O2 -o program && ./program`;
-    }
-
-    else if (language === "cpp") {
-        sourceFile = "main.cpp";
-        command = `g++ ${sourceFile} -O2 -o program && ./program`;
-    }
-
-    else if (language === "java") {
-        sourceFile = "Main.java";
-        command = `javac Main.java && java -cp . Main`;
-    }
-
-    else if (language === "go") {
-        sourceFile = "main.go";
 
         command =
-            `GO111MODULE=off go build -o program ${sourceFile} && ./program`;
+            "python3 main.py";
+
+        timeout = 30000;
     }
 
+
+    /*
+      JAVASCRIPT
+    */
+    else if (language === "javascript") {
+
+        sourceFile = "main.js";
+
+        command =
+            "node main.js";
+
+        timeout = 30000;
+    }
+
+
+    /*
+      PHP
+    */
+    else if (language === "php") {
+
+        sourceFile = "main.php";
+
+        command =
+            "php main.php";
+
+        timeout = 30000;
+    }
+
+
+    /*
+      C
+    */
+    else if (language === "c") {
+
+        sourceFile = "main.c";
+        binaryFile = "program";
+
+        command =
+            "gcc main.c -O2 -o program && ./program";
+
+        timeout = 60000;
+    }
+
+
+    /*
+      C++
+    */
+    else if (language === "cpp") {
+
+        sourceFile = "main.cpp";
+        binaryFile = "program";
+
+        command =
+            "g++ main.cpp -O2 -o program && ./program";
+
+        timeout = 60000;
+    }
+
+
+    /*
+      JAVA
+    */
+    else if (language === "java") {
+
+        sourceFile = "Main.java";
+
+        command =
+            "javac Main.java && java -cp . Main";
+
+        timeout = JAVA_TIMEOUT;
+    }
+
+
+    /*
+      GO
+    */
+    else if (language === "go") {
+
+        sourceFile = "main.go";
+        binaryFile = "program";
+
+        command =
+            "go build -o program main.go && ./program";
+
+        timeout = GO_TIMEOUT;
+    }
+
+
+    /*
+      RUST
+    */
     else if (language === "rust") {
+
         sourceFile = "main.rs";
-        command = `rustc ${sourceFile} -O -o program && ./program`;
+        binaryFile = "program";
+
+        command =
+            "rustc main.rs -O -o program && ./program";
+
+        timeout = RUST_TIMEOUT;
     }
 
-    const sourcePath = path.join(workDir, sourceFile);
+
+    /*
+      Write source code
+    */
+    const sourcePath = path.join(
+        workDir,
+        sourceFile
+    );
+
 
     try {
-        fs.writeFileSync(sourcePath, code, "utf8");
+
+        fs.writeFileSync(
+            sourcePath,
+            code,
+            "utf8"
+        );
+
     } catch (error) {
-        fs.rmSync(workDir, {
-            recursive: true,
-            force: true
-        });
+
+        cleanup(workDir);
 
         return res.status(500).json({
-            output: "Could not create source file.\n\n" + error.message
+            output:
+                "Could not create source file.\n\n" +
+                error.message
         });
     }
 
-    const env = {
-        ...process.env,
 
-        HOME: workDir,
-
-        GO111MODULE: "off",
-
-        GOPATH: path.join(workDir, "gopath"),
-
-        GOCACHE: path.join(workDir, "gocache"),
-
-        GOMODCACHE: path.join(workDir, "gomodcache")
+    /*
+      Environment
+    */
+    const environment = {
+        ...process.env
     };
 
+
+    /*
+      Go settings
+    */
+    if (language === "go") {
+
+        environment.GO111MODULE = "off";
+
+        environment.GOCACHE =
+            GO_CACHE;
+
+        environment.GOPATH =
+            GO_PATH;
+
+        environment.GOTOOLCHAIN =
+            "local";
+    }
+
+
+    /*
+      Execute program
+    */
     exec(
         command,
         {
             cwd: workDir,
-            env: env,
-            timeout: TIMEOUT,
-            maxBuffer: 5 * 1024 * 1024,
+
+            env: environment,
+
+            timeout: timeout,
+
+            maxBuffer:
+                5 * 1024 * 1024,
+
             shell: "/bin/bash"
         },
+
         (error, stdout, stderr) => {
 
             let output = "";
 
-            if (error) {
-                output += "ERROR\n\n";
 
-                if (stderr && stderr.trim()) {
+            /*
+              Error
+            */
+            if (error) {
+
+                output =
+                    "ERROR:\n\n";
+
+
+                if (stderr &&
+                    stderr.trim()) {
+
                     output += stderr;
                 }
 
-                else if (stdout && stdout.trim()) {
+                else if (stdout &&
+                         stdout.trim()) {
+
                     output += stdout;
                 }
 
                 else {
-                    output += error.message;
+
+                    output +=
+                        error.message ||
+                        "Program execution failed.";
                 }
+
 
                 if (error.killed) {
+
                     output +=
-                        "\n\nExecution stopped: time limit exceeded.";
+                        "\n\nExecution stopped because the time limit was exceeded.";
                 }
+
             }
 
+            /*
+              Success
+            */
             else {
-                output = stdout || "Program finished successfully.";
+
+                output =
+                    stdout ||
+                    "Program finished successfully.";
             }
 
-            fs.rmSync(workDir, {
-                recursive: true,
-                force: true
-            });
+
+            /*
+              Cleanup
+            */
+            cleanup(workDir);
+
 
             return res.json({
                 output: output
@@ -166,10 +345,31 @@ app.post("/run", (req, res) => {
     );
 });
 
-const PORT = process.env.PORT || 3000;
+
+/*
+  Health check
+*/
+app.get("/health", (req, res) => {
+
+    res.json({
+        status: "ok",
+        compiler: "online"
+    });
+});
+
+
+/*
+  Start server
+*/
+const PORT =
+    process.env.PORT || 3000;
+
 
 app.listen(PORT, () => {
+
     console.log(
-        `Online Compiler running on port ${PORT}`
+        "Online Compiler running on port " +
+        PORT
     );
+
 });
