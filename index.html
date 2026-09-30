@@ -1,215 +1,764 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Online Compiler</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>Online Compiler</title>
 
-<style>
-*{
-margin:0;
-padding:0;
-box-sizing:border-box;
-}
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #111827;
+      --panel-2: #0f172a;
+      --panel-3: #0b1220;
+      --border: #263244;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #7c3aed;
+      --accent-hover: #8b5cf6;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --shadow: 0 16px 40px rgba(0,0,0,.25);
+    }
 
-body{
-background:#0d1117;
-color:white;
-font-family:Arial,sans-serif;
-padding:20px;
-}
+    * { box-sizing: border-box; }
 
-h1{
-margin-bottom:20px;
-}
+    html, body { height: 100%; }
 
-.toolbar{
-display:flex;
-gap:10px;
-margin-bottom:15px;
-}
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
 
-select{
-padding:10px;
-background:#161b22;
-color:white;
-border:1px solid #30363d;
-border-radius:5px;
-}
+    button, select, textarea { font: inherit; }
 
-button{
-padding:10px 20px;
-border:none;
-background:#7c3aed;
-color:white;
-border-radius:5px;
-cursor:pointer;
-font-weight:bold;
-}
+    .app {
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 58px 1fr;
+    }
 
-button:hover{
-opacity:.9;
-}
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 16px;
+      background: #0a0f1b;
+      border-bottom: 1px solid var(--border);
+    }
 
-textarea{
-width:100%;
-height:400px;
-background:#161b22;
-color:#f8fafc;
-border:1px solid #30363d;
-padding:15px;
-font-family:Consolas,monospace;
-font-size:15px;
-border-radius:5px;
-}
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 210px;
+    }
 
-#output{
-margin-top:20px;
-background:black;
-color:#00ff66;
-padding:15px;
-min-height:150px;
-border-radius:5px;
-white-space:pre-wrap;
-overflow:auto;
-}
-</style>
+    .brand-logo { font-size: 22px; }
+
+    .brand-name {
+      font-weight: 800;
+      letter-spacing: .2px;
+      white-space: nowrap;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 9px;
+      flex: 1;
+    }
+
+    .select-wrap {
+      position: relative;
+    }
+
+    #language {
+      min-width: 145px;
+      appearance: none;
+      padding: 9px 34px 9px 12px;
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    #language:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(124,58,237,.15);
+    }
+
+    .select-wrap::after {
+      content: "▾";
+      position: absolute;
+      right: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      padding: 9px 13px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: .15s ease;
+      white-space: nowrap;
+    }
+
+    .btn:hover { background: #172033; }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+
+    .btn-run {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border-color: transparent;
+      background: var(--accent);
+      font-weight: 700;
+    }
+
+    .btn-run:hover { background: var(--accent-hover); }
+
+    .btn-stop {
+      display: none;
+      align-items: center;
+      gap: 7px;
+      border-color: rgba(239,68,68,.35);
+      color: #fecaca;
+      background: rgba(239,68,68,.1);
+    }
+
+    .btn-stop:hover { background: rgba(239,68,68,.18); }
+    .btn-stop.show { display: inline-flex; }
+
+    .main {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .editor-panel, .side-panel {
+      min-height: 0;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .editor-panel {
+      display: grid;
+      grid-template-rows: 40px 1fr 138px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      background: var(--panel-2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .file-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #dbeafe;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .status {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    #editor {
+      min-height: 0;
+    }
+
+    .stdin-panel {
+      display: grid;
+      grid-template-rows: 36px 1fr;
+      border-top: 1px solid var(--border);
+      background: var(--panel-3);
+    }
+
+    .stdin-title {
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #stdin {
+      width: 100%;
+      height: 100%;
+      resize: none;
+      border: 0;
+      outline: 0;
+      padding: 10px 12px;
+      background: #0a0f19;
+      color: var(--text);
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      font-size: 13px;
+    }
+
+    .side-panel {
+      display: grid;
+      grid-template-rows: 44px 1fr;
+    }
+
+    .tabs {
+      display: flex;
+      align-items: end;
+      gap: 3px;
+      padding: 0 8px;
+      background: var(--panel-2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      height: 44px;
+      padding: 0 13px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .tab.active {
+      color: #fff;
+      border-bottom-color: var(--accent);
+    }
+
+    .tab-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      margin-left: 5px;
+      border-radius: 999px;
+      font-size: 10px;
+      background: #1e293b;
+    }
+
+    .output-area {
+      min-height: 0;
+      overflow: auto;
+      padding: 14px;
+      background: #070b12;
+    }
+
+    .output-pane {
+      display: none;
+      min-height: 100%;
+    }
+
+    .output-pane.active { display: block; }
+
+    .console {
+      margin: 0;
+      min-height: 100%;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      color: #d1fae5;
+    }
+
+    .error-console { color: #fecaca; }
+
+    .info-console { color: #cbd5e1; }
+
+    .empty-state {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 30px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .welcome {
+      line-height: 1.6;
+    }
+
+    .welcome strong { color: #fff; }
+
+    .spinner {
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .mobile-run {
+      display: none;
+    }
+
+    @media (max-width: 980px) {
+      body { overflow: auto; }
+      .app { height: auto; min-height: 100vh; }
+      .topbar { height: auto; min-height: 58px; flex-wrap: wrap; padding: 10px; }
+      .brand { min-width: auto; }
+      .toolbar { justify-content: flex-start; flex-wrap: wrap; }
+      .main {
+        grid-template-columns: 1fr;
+        grid-template-rows: 62vh 38vh;
+        min-height: calc(100vh - 78px);
+      }
+      .side-panel { min-height: 280px; }
+    }
+
+    @media (max-width: 620px) {
+      .brand-name { font-size: 15px; }
+      #language { min-width: 120px; }
+      .btn { padding: 9px 11px; }
+      .main { padding: 6px; gap: 6px; }
+      .editor-panel, .side-panel { border-radius: 8px; }
+    }
+  </style>
 </head>
 
 <body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo">🚀</div>
+        <div class="brand-name">Online Compiler</div>
+      </div>
 
-<h1>🚀 Online Compiler</h1>
+      <div class="toolbar">
+        <div class="select-wrap">
+          <select id="language" aria-label="Programming language">
+            <option value="python">Python</option>
+            <option value="javascript">JavaScript</option>
+            <option value="php">PHP</option>
+            <option value="c">C</option>
+            <option value="cpp">C++</option>
+            <option value="java">Java</option>
+            <option value="go">Go</option>
+            <option value="rust">Rust</option>
+          </select>
+        </div>
 
-<div class="toolbar">
+        <button class="btn btn-run" id="runBtn" type="button">
+          <span id="runIcon">▶</span>
+          <span>Run Code</span>
+        </button>
 
-<select id="language" onchange="changeTemplate()">
-<option value="python">Python</option>
-<option value="javascript">JavaScript</option>
-<option value="php">PHP</option>
-<option value="c">C</option>
-<option value="cpp">C++</option>
-<option value="java">Java</option>
-<option value="go">Go</option>
-<option value="rust">Rust</option>
-</select>
+        <button class="btn btn-stop" id="stopBtn" type="button">
+          <span>■</span>
+          <span>Stop</span>
+        </button>
+      </div>
+    </header>
 
-<button onclick="runCode()">▶ Run Code</button>
+    <main class="main">
+      <section class="editor-panel">
+        <div class="panel-header">
+          <div class="file-name">
+            <span id="fileIcon">🐍</span>
+            <span id="fileName">main.py</span>
+          </div>
+          <div class="status" id="status">Ready</div>
+        </div>
 
-</div>
+        <div id="editor"></div>
 
-<textarea id="code">print("Hello World")</textarea>
+        <div class="stdin-panel">
+          <div class="stdin-title">Standard Input</div>
+          <textarea id="stdin" spellcheck="false" placeholder="Enter input for your program here..."></textarea>
+        </div>
+      </section>
 
-<div id="output">
-Output will appear here...
-</div>
+      <section class="side-panel">
+        <div class="tabs" role="tablist" aria-label="Program result">
+          <button class="tab active" data-tab="output" type="button" role="tab">Output <span class="tab-badge" id="outputBadge">0</span></button>
+          <button class="tab" data-tab="error" type="button" role="tab">Error <span class="tab-badge" id="errorBadge">0</span></button>
+          <button class="tab" data-tab="info" type="button" role="tab">Info</button>
+        </div>
 
-<script>
+        <div class="output-area">
+          <div class="output-pane active" id="pane-output">
+            <pre class="console" id="outputText"></pre>
+            <div class="empty-state welcome" id="outputEmpty">
+              <div>
+                <strong>Ready to run</strong><br />
+                Select a language, write your code, and press <strong>Run Code</strong>.
+              </div>
+            </div>
+          </div>
 
-function changeTemplate(){
+          <div class="output-pane" id="pane-error">
+            <pre class="console error-console" id="errorText"></pre>
+            <div class="empty-state" id="errorEmpty">No errors.</div>
+          </div>
 
-const lang=document.getElementById("language").value;
-const code=document.getElementById("code");
+          <div class="output-pane" id="pane-info">
+            <pre class="console info-console" id="infoText"></pre>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
 
-if(lang==="python"){
-code.value=`print("Hello World")`;
-}
+  <!-- Monaco Editor -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"></script>
+  <script>
+    const languageEl = document.getElementById("language");
+    const runBtn = document.getElementById("runBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const statusEl = document.getElementById("status");
+    const stdinEl = document.getElementById("stdin");
+    const outputText = document.getElementById("outputText");
+    const errorText = document.getElementById("errorText");
+    const infoText = document.getElementById("infoText");
+    const outputEmpty = document.getElementById("outputEmpty");
+    const errorEmpty = document.getElementById("errorEmpty");
+    const outputBadge = document.getElementById("outputBadge");
+    const errorBadge = document.getElementById("errorBadge");
+    const fileName = document.getElementById("fileName");
+    const fileIcon = document.getElementById("fileIcon");
 
-else if(lang==="javascript"){
-code.value=`console.log("Hello World");`;
-}
+    let editor = null;
+    let controller = null;
+    let isRunning = false;
 
-else if(lang==="php"){
-code.value=`<?php
-echo "Hello World";
-?>`;
-}
+    const languageConfig = {
+      python: {
+        monaco: "python",
+        file: "main.py",
+        icon: "🐍",
+        template: `print("Hello Python")
+print(10 + 20)`
+      },
+      javascript: {
+        monaco: "javascript",
+        file: "main.js",
+        icon: "🟨",
+        template: `console.log("Hello JavaScript");
+console.log(10 + 20);`
+      },
+      php: {
+        monaco: "php",
+        file: "main.php",
+        icon: "🐘",
+        template: `<?php
 
-else if(lang==="c"){
-code.value=`#include <stdio.h>
+echo "Hello PHP\\n";
+echo 10 + 20;
+
+?>`
+      },
+      c: {
+        monaco: "c",
+        file: "main.c",
+        icon: "🔵",
+        template: `#include <stdio.h>
 
 int main() {
-printf("Hello World");
-return 0;
-}`;
-}
-
-else if(lang==="cpp"){
-code.value=`#include <iostream>
+    printf("Hello C\\n");
+    printf("%d\\n", 10 + 20);
+    return 0;
+}`
+      },
+      cpp: {
+        monaco: "cpp",
+        file: "main.cpp",
+        icon: "🔷",
+        template: `#include <iostream>
 using namespace std;
 
 int main() {
-cout << "Hello World";
-return 0;
-}`;
-}
-
-else if(lang==="java"){
-code.value=`public class Main {
-public static void main(String[] args){
-System.out.println("Hello World");
-}
-}`;
-}
-
-else if(lang==="go"){
-code.value=`package main
+    cout << "Hello C++" << endl;
+    cout << 10 + 20 << endl;
+    return 0;
+}`
+      },
+      java: {
+        monaco: "java",
+        file: "Main.java",
+        icon: "☕",
+        template: `public class Main {
+    public static void main(String[] args) {
+        System.out.println("Hello Java");
+        System.out.println(10 + 20);
+    }
+}`
+      },
+      go: {
+        monaco: "go",
+        file: "main.go",
+        icon: "🐹",
+        template: `package main
 
 import "fmt"
 
-func main(){
-fmt.Println("Hello World")
-}`;
-}
+func main() {
+    fmt.Println("Hello Go")
+    fmt.Println(10 + 20)
+}`
+      },
+      rust: {
+        monaco: "rust",
+        file: "main.rs",
+        icon: "🦀",
+        template: `fn main() {
+    println!("Hello Rust");
+    println!("{}", 10 + 20);
+}`
+      }
+    };
 
-else if(lang==="rust"){
-code.value=`fn main() {
-println!("Hello World");
-}`;
-}
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
 
-}
+    function setRunning(running) {
+      isRunning = running;
+      runBtn.disabled = running;
+      stopBtn.classList.toggle("show", running);
+      runBtn.innerHTML = running
+        ? '<span class="spinner"></span><span>Running...</span>'
+        : '<span id="runIcon">▶</span><span>Run Code</span>';
+    }
 
-async function runCode(){
+    function clearResults() {
+      outputText.textContent = "";
+      errorText.textContent = "";
+      infoText.textContent = "";
+      outputEmpty.style.display = "grid";
+      errorEmpty.style.display = "grid";
+      outputBadge.textContent = "0";
+      errorBadge.textContent = "0";
+    }
 
-const code =
-document.getElementById("code").value;
+    function showOutput(text) {
+      outputText.textContent = text || "Program finished successfully with no output.";
+      outputEmpty.style.display = "none";
+      outputBadge.textContent = text ? "1" : "0";
+      activateTab("output");
+    }
 
-const language =
-document.getElementById("language").value;
+    function showError(text) {
+      errorText.textContent = text || "Unknown error.";
+      errorEmpty.style.display = "none";
+      errorBadge.textContent = "1";
+      activateTab("error");
+    }
 
-document.getElementById("output").innerText =
-"Running...";
+    function showInfo(text) {
+      infoText.textContent = text;
+    }
 
-try{
+    function activateTab(name) {
+      document.querySelectorAll(".tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.tab === name);
+      });
 
-const response =
-await fetch("/run",{
-method:"POST",
-headers:{
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-code,
-language
-})
-});
+      document.querySelectorAll(".output-pane").forEach(pane => {
+        pane.classList.toggle("active", pane.id === `pane-${name}`);
+      });
+    }
 
-const result =
-await response.json();
+    document.querySelectorAll(".tab").forEach(tab => {
+      tab.addEventListener("click", () => activateTab(tab.dataset.tab));
+    });
 
-document.getElementById("output").innerText =
-result.output || "No Output";
+    function updateFileUI() {
+      const config = languageConfig[languageEl.value];
+      fileName.textContent = config.file;
+      fileIcon.textContent = config.icon;
+    }
 
-}catch(error){
+    require.config({
+      paths: {
+        vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs"
+      }
+    });
 
-document.getElementById("output").innerText =
-error.message;
+    require(["vs/editor/editor.main"], function () {
+      editor = monaco.editor.create(document.getElementById("editor"), {
+        value: languageConfig.python.template,
+        language: languageConfig.python.monaco,
+        theme: "vs-dark",
+        automaticLayout: true,
+        minimap: { enabled: true },
+        fontSize: 14,
+        lineNumbers: "on",
+        roundedSelection: false,
+        scrollBeyondLastLine: false,
+        tabSize: 4,
+        insertSpaces: true,
+        wordWrap: "off",
+        padding: { top: 12, bottom: 12 },
+        suggestOnTriggerCharacters: true,
+        quickSuggestions: true
+      });
 
-}
+      setStatus("Ready");
+    });
 
-}
+    languageEl.addEventListener("change", () => {
+      if (!editor) return;
 
-</script>
+      const config = languageConfig[languageEl.value];
+      const model = editor.getModel();
 
+      monaco.editor.setModelLanguage(model, config.monaco);
+      editor.setValue(config.template);
+      updateFileUI();
+      clearResults();
+      showInfo(`Language: ${languageEl.options[languageEl.selectedIndex].text}\nFile: ${config.file}`);
+      setStatus("Ready");
+    });
+
+    async function runCode() {
+      if (!editor || isRunning) return;
+
+      const code = editor.getValue();
+      const language = languageEl.value;
+      const input = stdinEl.value;
+
+      if (!code.trim()) {
+        showError("Your code editor is empty.");
+        return;
+      }
+
+      controller = new AbortController();
+      setRunning(true);
+      setStatus("Running...");
+      clearResults();
+      showInfo(
+        `Language: ${languageEl.options[languageEl.selectedIndex].text}\n` +
+        `Status: Running\n` +
+        `Input bytes: ${new TextEncoder().encode(input).length}`
+      );
+
+      const startedAt = performance.now();
+
+      try {
+        const response = await fetch("/run", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            code,
+            language,
+            input
+          }),
+          signal: controller.signal
+        });
+
+        const raw = await response.text();
+        let result;
+
+        try {
+          result = JSON.parse(raw);
+        } catch {
+          throw new Error(raw || `Server returned HTTP ${response.status}`);
+        }
+
+        if (!response.ok) {
+          throw new Error(result.output || `HTTP ${response.status}`);
+        }
+
+        const output = result.output || "";
+        const elapsed = ((performance.now() - startedAt) / 1000).toFixed(2);
+
+        if (/^ERROR\s*:/i.test(output)) {
+          showError(output.replace(/^ERROR\s*:\s*/i, ""));
+          showInfo(
+            `Language: ${languageEl.options[languageEl.selectedIndex].text}\n` +
+            `Status: Failed\n` +
+            `Time: ${elapsed}s`
+          );
+          setStatus("Failed");
+        } else {
+          showOutput(output);
+          showInfo(
+            `Language: ${languageEl.options[languageEl.selectedIndex].text}\n` +
+            `Status: Completed\n` +
+            `Time: ${elapsed}s`
+          );
+          setStatus("Completed");
+        }
+      } catch (error) {
+        if (error.name === "AbortError") {
+          showInfo("Execution stopped by user.");
+          setStatus("Stopped");
+        } else {
+          showError(error.message || "Could not connect to the compiler server.");
+          showInfo("The compiler request failed. Check the Render service logs and /run endpoint.");
+          setStatus("Request failed");
+        }
+      } finally {
+        controller = null;
+        setRunning(false);
+      }
+    }
+
+    function stopCode() {
+      if (controller) {
+        controller.abort();
+        controller = null;
+      }
+      setRunning(false);
+      setStatus("Stopping...");
+    }
+
+    runBtn.addEventListener("click", runCode);
+    stopBtn.addEventListener("click", stopCode);
+
+    document.addEventListener("keydown", (event) => {
+      const isRunShortcut =
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "enter";
+
+      if (isRunShortcut) {
+        event.preventDefault();
+        runCode();
+      }
+    });
+
+    updateFileUI();
+    showInfo("Select a language to begin.");
+  </script>
 </body>
 </html>
