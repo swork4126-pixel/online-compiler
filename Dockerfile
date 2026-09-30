@@ -9,19 +9,20 @@ RUN apt-get update && apt-get install -y \
     npm \
     php-cli \
     openjdk-21-jdk \
-    g++ \
     gcc \
-    golang \
+    g++ \
+    golang-go \
     rustc \
     cargo \
-    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY . .
+COPY package*.json ./
 
 RUN npm install
+
+COPY . .
 
 EXPOSE 3000
 
