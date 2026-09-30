@@ -1,4 +1,6 @@
 const express = require("express");
+const http = require("http");
+const WebSocket = require("ws");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -9,7 +11,14 @@ const app = express();
 app.use(express.json({ limit: "5mb" }));
 app.use(express.static("."));
 
-const TIMEOUTS = {
+const server = http.createServer(app);
+
+const wss = new WebSocket.Server({
+    server,
+    path: "/ws"
+});
+
+const TIMEOUT = {
     python: 30000,
     javascript: 30000,
     php: 30000,
@@ -20,6 +29,18 @@ const TIMEOUTS = {
     rust: 120000
 };
 
+const GO_CACHE = "/tmp/go-build-cache";
+
+try {
+    fs.mkdirSync(GO_CACHE, { recursive: true });
+} catch (_) {}
+
+function send(ws, data) {
+    if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(data));
+    }
+}
+
 function cleanup(dir) {
     try {
         fs.rmSync(dir, {
@@ -29,455 +50,647 @@ function cleanup(dir) {
     } catch (_) {}
 }
 
-function runCommand(command, args, options = {}) {
-    return new Promise((resolve) => {
-        const child = spawn(command, args, {
-            cwd: options.cwd,
-            env: options.env || process.env,
-            stdio: ["pipe", "pipe", "pipe"]
-        });
-
-        let stdout = "";
-        let stderr = "";
-        let finished = false;
-
-        const timeout = setTimeout(() => {
-            if (finished) return;
-
-            finished = true;
-
-            try {
-                child.kill("SIGKILL");
-            } catch (_) {}
-
-            resolve({
-                code: -1,
-                stdout,
-                stderr: "Execution time limit exceeded.",
-                timeout: true
-            });
-        }, options.timeout || 30000);
-
-        child.stdout.on("data", (data) => {
-            stdout += data.toString();
-
-            if (stdout.length > 5 * 1024 * 1024) {
-                try {
-                    child.kill("SIGKILL");
-                } catch (_) {}
-            }
-        });
-
-        child.stderr.on("data", (data) => {
-            stderr += data.toString();
-
-            if (stderr.length > 5 * 1024 * 1024) {
-                try {
-                    child.kill("SIGKILL");
-                } catch (_) {}
-            }
-        });
-
-        child.on("error", (error) => {
-            if (finished) return;
-
-            finished = true;
-            clearTimeout(timeout);
-
-            resolve({
-                code: -1,
-                stdout,
-                stderr: error.message,
-                timeout: false
-            });
-        });
-
-        child.on("close", (code) => {
-            if (finished) return;
-
-            finished = true;
-            clearTimeout(timeout);
-
-            resolve({
-                code,
-                stdout,
-                stderr,
-                timeout: false
-            });
-        });
-
-        if (typeof options.input === "string") {
-            child.stdin.write(options.input);
-        }
-
-        child.stdin.end();
-    });
-}
-
-async function executeProgram({
-    workDir,
-    command,
-    args,
-    input,
-    env,
-    timeout
-}) {
-    return runCommand(command, args, {
-        cwd: workDir,
-        input,
-        env,
-        timeout
-    });
-}
-
-async function compileAndRun({
-    workDir,
-    compiler,
-    compilerArgs,
-    runner,
-    runnerArgs,
-    input,
-    env,
-    compileTimeout,
-    runTimeout
-}) {
-    const compileResult = await runCommand(
-        compiler,
-        compilerArgs,
-        {
-            cwd: workDir,
-            env,
-            timeout: compileTimeout
-        }
-    );
-
-    if (compileResult.code !== 0) {
-        return {
-            success: false,
-            output:
-                compileResult.stderr ||
-                compileResult.stdout ||
-                "Compilation failed."
-        };
-    }
-
-    const runResult = await runCommand(
-        runner,
-        runnerArgs,
-        {
-            cwd: workDir,
-            env,
-            input,
-            timeout: runTimeout
-        }
-    );
-
-    if (runResult.code !== 0) {
-        return {
-            success: false,
-            output:
-                runResult.stderr ||
-                runResult.stdout ||
-                "Program execution failed."
-        };
-    }
-
-    return {
-        success: true,
-        output:
-            runResult.stdout ||
-            "Program finished successfully."
-    };
-}
-
-app.post("/run", async (req, res) => {
-    const code = req.body?.code;
-    const language = req.body?.language;
-    const input =
-        typeof req.body?.input === "string"
-            ? req.body.input
-            : "";
-
-    if (typeof code !== "string" || code.trim() === "") {
-        return res.status(400).json({
-            output: "Code is empty."
-        });
-    }
-
-    if (!language) {
-        return res.status(400).json({
-            output: "Please select a language."
-        });
-    }
-
-    const supported = [
-        "python",
-        "javascript",
-        "php",
-        "c",
-        "cpp",
-        "java",
-        "go",
-        "rust"
-    ];
-
-    if (!supported.includes(language)) {
-        return res.status(400).json({
-            output: "Unsupported language: " + language
-        });
-    }
-
-    const workDir = fs.mkdtempSync(
-        path.join(os.tmpdir(), "compiler-")
-    );
+function killProcess(child) {
+    if (!child) return;
 
     try {
-        let sourceFile;
-        let result;
+        child.kill("SIGKILL");
+    } catch (_) {}
+}
 
-        if (language === "python") {
-            sourceFile = "main.py";
+function createProcess(command, args, options) {
+    return spawn(command, args, {
+        cwd: options.cwd,
+        env: options.env || process.env,
+        stdio: ["pipe", "pipe", "pipe"]
+    });
+}
 
-            fs.writeFileSync(
-                path.join(workDir, sourceFile),
-                code,
-                "utf8"
-            );
+function startCompilerProcess({
+    command,
+    args,
+    cwd,
+    env,
+    timeout,
+    ws,
+    onSuccess,
+    onFailure
+}) {
+    const child = createProcess(command, args, {
+        cwd,
+        env
+    });
 
-            result = await executeProgram({
-                workDir,
-                command: "python3",
-                args: [sourceFile],
-                input,
-                timeout: TIMEOUTS.python
+    let finished = false;
+    let stderrText = "";
+    let stdoutText = "";
+
+    const timer = setTimeout(() => {
+        if (finished) return;
+
+        finished = true;
+
+        killProcess(child);
+
+        send(ws, {
+            type: "error",
+            data: "Compilation time limit exceeded.\r\n"
+        });
+
+        onFailure();
+    }, timeout);
+
+    child.stdout.on("data", data => {
+        const text = data.toString();
+
+        stdoutText += text;
+
+        send(ws, {
+            type: "output",
+            data: text
+        });
+    });
+
+    child.stderr.on("data", data => {
+        const text = data.toString();
+
+        stderrText += text;
+
+        send(ws, {
+            type: "error",
+            data: text
+        });
+    });
+
+    child.on("error", error => {
+        if (finished) return;
+
+        finished = true;
+
+        clearTimeout(timer);
+
+        send(ws, {
+            type: "error",
+            data: error.message + "\r\n"
+        });
+
+        onFailure();
+    });
+
+    child.on("close", code => {
+        if (finished) return;
+
+        finished = true;
+
+        clearTimeout(timer);
+
+        if (code === 0) {
+            onSuccess(child);
+        } else {
+            send(ws, {
+                type: "error",
+                data:
+                    stderrText ||
+                    stdoutText ||
+                    `Compilation failed with exit code ${code}.\r\n`
             });
+
+            onFailure();
+        }
+    });
+
+    return child;
+}
+
+function startRunProcess({
+    command,
+    args,
+    cwd,
+    env,
+    inputHandler,
+    timeout,
+    ws,
+    onExit
+}) {
+    const child = createProcess(command, args, {
+        cwd,
+        env
+    });
+
+    let finished = false;
+
+    const timer = setTimeout(() => {
+        if (finished) return;
+
+        finished = true;
+
+        killProcess(child);
+
+        send(ws, {
+            type: "error",
+            data:
+                "\r\nExecution stopped: time limit exceeded.\r\n"
+        });
+
+        onExit();
+    }, timeout);
+
+    child.stdout.on("data", data => {
+        send(ws, {
+            type: "output",
+            data: data.toString()
+        });
+    });
+
+    child.stderr.on("data", data => {
+        send(ws, {
+            type: "error",
+            data: data.toString()
+        });
+    });
+
+    child.on("error", error => {
+        if (finished) return;
+
+        finished = true;
+
+        clearTimeout(timer);
+
+        send(ws, {
+            type: "error",
+            data: error.message + "\r\n"
+        });
+
+        onExit();
+    });
+
+    child.on("close", code => {
+        if (finished) return;
+
+        finished = true;
+
+        clearTimeout(timer);
+
+        send(ws, {
+            type: "exit",
+            code
+        });
+
+        onExit();
+    });
+
+    inputHandler(child);
+
+    return child;
+}
+
+wss.on("connection", ws => {
+    let session = null;
+
+    send(ws, {
+        type: "info",
+        data: "Connected to compiler server.\r\n"
+    });
+
+    ws.on("message", async raw => {
+        let message;
+
+        try {
+            message = JSON.parse(raw.toString());
+        } catch (_) {
+            return;
         }
 
-        else if (language === "javascript") {
-            sourceFile = "main.js";
+        /*
+         * RUN
+         */
+        if (message.type === "run") {
 
-            fs.writeFileSync(
-                path.join(workDir, sourceFile),
-                code,
-                "utf8"
+            if (
+                session &&
+                session.process
+            ) {
+                killProcess(session.process);
+            }
+
+            if (
+                session &&
+                session.workDir
+            ) {
+                cleanup(session.workDir);
+            }
+
+            const code = message.code;
+            const language = message.language;
+
+            if (
+                typeof code !== "string" ||
+                !language
+            ) {
+                send(ws, {
+                    type: "error",
+                    data:
+                        "Code and language are required.\r\n"
+                });
+
+                return;
+            }
+
+            const supported = [
+                "python",
+                "javascript",
+                "php",
+                "c",
+                "cpp",
+                "java",
+                "go",
+                "rust"
+            ];
+
+            if (!supported.includes(language)) {
+                send(ws, {
+                    type: "error",
+                    data:
+                        "Unsupported language: " +
+                        language +
+                        "\r\n"
+                });
+
+                return;
+            }
+
+            const workDir = fs.mkdtempSync(
+                path.join(
+                    os.tmpdir(),
+                    "compiler-"
+                )
             );
 
-            result = await executeProgram({
+            session = {
                 workDir,
-                command: "node",
-                args: [sourceFile],
-                input,
-                timeout: TIMEOUTS.javascript
-            });
-        }
+                process: null
+            };
 
-        else if (language === "php") {
-            sourceFile = "main.php";
+            let sourceFile = "";
+            let runCommand = "";
+            let runArgs = [];
+            let compileCommand = null;
+            let compileArgs = [];
 
-            fs.writeFileSync(
-                path.join(workDir, sourceFile),
-                code,
-                "utf8"
-            );
+            if (language === "python") {
+                sourceFile = "main.py";
+                runCommand = "python3";
+                runArgs = [sourceFile];
+            }
 
-            result = await executeProgram({
-                workDir,
-                command: "php",
-                args: [sourceFile],
-                input,
-                timeout: TIMEOUTS.php
-            });
-        }
+            else if (language === "javascript") {
+                sourceFile = "main.js";
+                runCommand = "node";
+                runArgs = [sourceFile];
+            }
 
-        else if (language === "c") {
-            sourceFile = "main.c";
+            else if (language === "php") {
+                sourceFile = "main.php";
+                runCommand = "php";
+                runArgs = [sourceFile];
+            }
 
-            fs.writeFileSync(
-                path.join(workDir, sourceFile),
-                code,
-                "utf8"
-            );
+            else if (language === "c") {
+                sourceFile = "main.c";
 
-            result = await compileAndRun({
-                workDir,
-                compiler: "gcc",
-                compilerArgs: [
+                compileCommand = "gcc";
+
+                compileArgs = [
                     sourceFile,
                     "-O2",
                     "-o",
                     "program"
-                ],
-                runner: path.join(workDir, "program"),
-                runnerArgs: [],
-                input,
-                compileTimeout: TIMEOUTS.c,
-                runTimeout: TIMEOUTS.c
-            });
-        }
+                ];
 
-        else if (language === "cpp") {
-            sourceFile = "main.cpp";
+                runCommand =
+                    path.join(
+                        workDir,
+                        "program"
+                    );
+            }
 
-            fs.writeFileSync(
-                path.join(workDir, sourceFile),
-                code,
-                "utf8"
-            );
+            else if (language === "cpp") {
+                sourceFile = "main.cpp";
 
-            result = await compileAndRun({
-                workDir,
-                compiler: "g++",
-                compilerArgs: [
+                compileCommand = "g++";
+
+                compileArgs = [
                     sourceFile,
                     "-O2",
                     "-std=c++17",
                     "-o",
                     "program"
-                ],
-                runner: path.join(workDir, "program"),
-                runnerArgs: [],
-                input,
-                compileTimeout: TIMEOUTS.cpp,
-                runTimeout: TIMEOUTS.cpp
-            });
-        }
+                ];
 
-        else if (language === "java") {
-            sourceFile = "Main.java";
+                runCommand =
+                    path.join(
+                        workDir,
+                        "program"
+                    );
+            }
 
-            fs.writeFileSync(
-                path.join(workDir, sourceFile),
-                code,
-                "utf8"
-            );
+            else if (language === "java") {
+                sourceFile = "Main.java";
 
-            result = await compileAndRun({
-                workDir,
-                compiler: "javac",
-                compilerArgs: [
+                compileCommand = "javac";
+
+                compileArgs = [
                     sourceFile
-                ],
-                runner: "java",
-                runnerArgs: [
+                ];
+
+                runCommand = "java";
+
+                runArgs = [
                     "-cp",
                     workDir,
                     "Main"
-                ],
-                input,
-                compileTimeout: TIMEOUTS.java,
-                runTimeout: TIMEOUTS.java
-            });
-        }
+                ];
+            }
 
-        else if (language === "go") {
-            sourceFile = "main.go";
+            else if (language === "go") {
+                sourceFile = "main.go";
 
-            fs.writeFileSync(
-                path.join(workDir, sourceFile),
-                code,
-                "utf8"
-            );
+                compileCommand = "go";
 
-            const goEnv = {
-                ...process.env,
-                GO111MODULE: "off",
-                GOCACHE: "/tmp/go-build-cache"
-            };
-
-            try {
-                fs.mkdirSync(
-                    "/tmp/go-build-cache",
-                    { recursive: true }
-                );
-            } catch (_) {}
-
-            result = await compileAndRun({
-                workDir,
-                compiler: "go",
-                compilerArgs: [
+                compileArgs = [
                     "build",
                     "-o",
                     "program",
                     sourceFile
-                ],
-                runner: path.join(workDir, "program"),
-                runnerArgs: [],
-                input,
-                env: goEnv,
-                compileTimeout: TIMEOUTS.go,
-                runTimeout: 30000
-            });
-        }
+                ];
 
-        else if (language === "rust") {
-            sourceFile = "main.rs";
+                runCommand =
+                    path.join(
+                        workDir,
+                        "program"
+                    );
+            }
 
-            fs.writeFileSync(
-                path.join(workDir, sourceFile),
-                code,
-                "utf8"
-            );
+            else if (language === "rust") {
+                sourceFile = "main.rs";
 
-            result = await compileAndRun({
-                workDir,
-                compiler: "rustc",
-                compilerArgs: [
+                compileCommand = "rustc";
+
+                compileArgs = [
                     sourceFile,
                     "-O",
                     "-o",
                     "program"
-                ],
-                runner: path.join(workDir, "program"),
-                runnerArgs: [],
-                input,
-                compileTimeout: TIMEOUTS.rust,
-                runTimeout: 30000
+                ];
+
+                runCommand =
+                    path.join(
+                        workDir,
+                        "program"
+                    );
+            }
+
+            try {
+                fs.writeFileSync(
+                    path.join(
+                        workDir,
+                        sourceFile
+                    ),
+                    code,
+                    "utf8"
+                );
+            } catch (error) {
+                cleanup(workDir);
+
+                send(ws, {
+                    type: "error",
+                    data:
+                        "File error:\r\n" +
+                        error.message +
+                        "\r\n"
+                });
+
+                return;
+            }
+
+            const env = {
+                ...process.env
+            };
+
+            if (language === "go") {
+                env.GO111MODULE = "off";
+                env.GOCACHE = GO_CACHE;
+            }
+
+            send(ws, {
+                type: "started",
+                language
             });
+
+            async function startProgram() {
+
+                send(ws, {
+                    type: "info",
+                    data:
+                        "Program started.\r\n"
+                });
+
+                const process = startRunProcess({
+                    command: runCommand,
+                    args: runArgs,
+                    cwd: workDir,
+                    env,
+                    timeout:
+                        TIMEOUT[
+                            language
+                        ],
+                    ws,
+
+                    inputHandler: child => {
+                        session.process = child;
+                    },
+
+                    onExit: () => {
+                        if (session) {
+                            session.process = null;
+                        }
+
+                        cleanup(workDir);
+
+                        send(ws, {
+                            type: "finished"
+                        });
+                    }
+                });
+
+                session.process = process;
+            }
+
+            if (compileCommand) {
+
+                send(ws, {
+                    type: "info",
+                    data:
+                        "Compiling " +
+                        language +
+                        "...\r\n"
+                });
+
+                const compiler =
+                    startCompilerProcess({
+                        command:
+                            compileCommand,
+
+                        args:
+                            compileArgs,
+
+                        cwd:
+                            workDir,
+
+                        env,
+
+                        timeout:
+                            TIMEOUT[
+                                language
+                            ],
+
+                        ws,
+
+                        onSuccess:
+                            startProgram,
+
+                        onFailure: () => {
+                            cleanup(
+                                workDir
+                            );
+
+                            if (session) {
+                                session.process =
+                                    null;
+                            }
+
+                            send(ws, {
+                                type:
+                                    "finished"
+                            });
+                        }
+                    });
+
+                session.process =
+                    compiler;
+
+            } else {
+                await startProgram();
+            }
+
+            return;
         }
 
-        if (!result) {
-            return res.json({
-                output: "Execution failed."
-            });
+        /*
+         * INPUT
+         */
+        if (message.type === "input") {
+
+            if (
+                session &&
+                session.process &&
+                session.process.stdin
+            ) {
+                let input =
+                    typeof message.data ===
+                    "string"
+                        ? message.data
+                        : "";
+
+                input =
+                    input.replace(
+                        /\r/g,
+                        "\n"
+                    );
+
+                try {
+                    session.process.stdin.write(
+                        input
+                    );
+                } catch (_) {}
+            }
+
+            return;
         }
 
-        return res.json({
-            output: result.output
-        });
+        /*
+         * STOP
+         */
+        if (message.type === "stop") {
 
-    } catch (error) {
-        return res.status(500).json({
-            output:
-                "SERVER ERROR:\n\n" +
-                error.message
-        });
+            if (
+                session &&
+                session.process
+            ) {
+                killProcess(
+                    session.process
+                );
 
-    } finally {
-        cleanup(workDir);
-    }
+                session.process = null;
+            }
+
+            if (
+                session &&
+                session.workDir
+            ) {
+                cleanup(
+                    session.workDir
+                );
+            }
+
+            send(ws, {
+                type: "stopped"
+            });
+
+            return;
+        }
+    });
+
+    ws.on("close", () => {
+
+        if (
+            session &&
+            session.process
+        ) {
+            killProcess(
+                session.process
+            );
+        }
+
+        if (
+            session &&
+            session.workDir
+        ) {
+            cleanup(
+                session.workDir
+            );
+        }
+    });
 });
 
 app.get("/health", (req, res) => {
     res.json({
         status: "ok",
         compiler: "online",
-        languages: [
-            "Python",
-            "JavaScript",
-            "PHP",
-            "C",
-            "C++",
-            "Java",
-            "Go",
-            "Rust"
-        ]
+        websocket: true
     });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT =
+    process.env.PORT || 10000;
 
-app.listen(PORT, () => {
-    console.log(
-        "Online Compiler running on port " + PORT
-    );
-});
+server.listen(
+    PORT,
+    "0.0.0.0",
+    () => {
+        console.log(
+            "Online Compiler running on port " +
+            PORT
+        );
+    }
+);
