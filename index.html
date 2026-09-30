@@ -164,7 +164,7 @@
 
     .editor-panel {
       display: grid;
-      grid-template-rows: 40px 1fr 138px;
+      grid-template-rows: 40px 1fr;
     }
 
     .panel-header {
@@ -194,37 +194,6 @@
       min-height: 0;
     }
 
-    .stdin-panel {
-      display: grid;
-      grid-template-rows: 36px 1fr;
-      border-top: 1px solid var(--border);
-      background: var(--panel-3);
-    }
-
-    .stdin-title {
-      display: flex;
-      align-items: center;
-      padding: 0 12px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      border-bottom: 1px solid var(--border);
-    }
-
-    #stdin {
-      width: 100%;
-      height: 100%;
-      resize: none;
-      border: 0;
-      outline: 0;
-      padding: 10px 12px;
-      background: #0a0f19;
-      color: var(--text);
-      font-family: Consolas, Monaco, "Courier New", monospace;
-      font-size: 13px;
-    }
 
     .side-panel {
       display: grid;
@@ -275,6 +244,45 @@
       overflow: auto;
       padding: 14px;
       background: #070b12;
+    }
+
+    .terminal-input-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: #05080d;
+      border: 1px solid #182233;
+      border-radius: 8px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.01);
+    }
+
+    .terminal-prompt {
+      color: #22c55e;
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.55;
+      user-select: none;
+    }
+
+    .terminal-input {
+      width: 100%;
+      min-height: 34px;
+      max-height: 120px;
+      resize: vertical;
+      border: 0;
+      outline: 0;
+      padding: 0;
+      background: transparent;
+      color: #d1fae5;
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .terminal-input::placeholder {
+      color: #64748b;
     }
 
     .output-pane {
@@ -400,10 +408,7 @@
 
         <div id="editor"></div>
 
-        <div class="stdin-panel">
-          <div class="stdin-title">Standard Input</div>
-          <textarea id="stdin" spellcheck="false" placeholder="Enter input for your program here..."></textarea>
-        </div>
+</div>
       </section>
 
       <section class="side-panel">
@@ -414,6 +419,10 @@
         </div>
 
         <div class="output-area">
+          <div class="terminal-input-wrap">
+            <div class="terminal-prompt">$</div>
+            <textarea id="terminalInput" class="terminal-input" spellcheck="false" placeholder="Type program input here, then press Run Code..." aria-label="Program input"></textarea>
+          </div>
           <div class="output-pane active" id="pane-output">
             <pre class="console" id="outputText"></pre>
             <div class="empty-state welcome" id="outputEmpty">
@@ -444,7 +453,6 @@
     const runBtn = document.getElementById("runBtn");
     const stopBtn = document.getElementById("stopBtn");
     const statusEl = document.getElementById("status");
-    const stdinEl = document.getElementById("stdin");
     const outputText = document.getElementById("outputText");
     const errorText = document.getElementById("errorText");
     const infoText = document.getElementById("infoText");
@@ -653,7 +661,7 @@ func main() {
 
       const code = editor.getValue();
       const language = languageEl.value;
-      const input = stdinEl.value;
+      const input = document.getElementById("terminalInput").value;
 
       if (!code.trim()) {
         showError("Your code editor is empty.");
@@ -758,7 +766,7 @@ func main() {
     });
 
     updateFileUI();
-    showInfo("Select a language to begin.");
+    showInfo("Select a language, write your code, optionally enter program input in the terminal area, then press Run Code.");
   </script>
 </body>
 </html>
