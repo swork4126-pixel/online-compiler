@@ -57,7 +57,7 @@ app.post("/run", (req, res) => {
 
         case "go":
             sourceFile = `temp_${id}.go`;
-            command = `go run ${sourceFile}`;
+            command = `go version && go run ${sourceFile}`;
             break;
 
         case "rust":
@@ -71,11 +71,18 @@ app.post("/run", (req, res) => {
             });
     }
 
-    fs.writeFileSync(sourceFile, code);
+    try {
+        fs.writeFileSync(sourceFile, code);
+    } catch (e) {
+        return res.json({
+            output: e.message
+        });
+    }
 
     exec(command, { timeout: 10000 }, (err, stdout, stderr) => {
 
         try {
+
             if (fs.existsSync(sourceFile))
                 fs.unlinkSync(sourceFile);
 
@@ -91,7 +98,7 @@ app.post("/run", (req, res) => {
             return res.json({
                 output:
                     "ERROR:\n\n" +
-                    (stderr || err.message || "Unknown Error")
+                    (stderr || stdout || err.message)
             });
         }
 
